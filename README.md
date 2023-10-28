@@ -53,9 +53,8 @@ python re-incription.py -d mydocument-encrypted.rei
 - Option to compress file before encryption and automatic decompression during decryption.
 
 ## Notes
-Password: When prompted for a password, you can type it securely without the characters being displayed in the terminal.
-
-File Type: Ensure that the file to be decrypted is of the .rei type. The program will verify the file's integrity and authenticity before decryption.
+- Password: When prompted for a password, you can type it securely without the characters being displayed in the terminal.
+- File Type: Ensure that the file to be decrypted is of the .rei type. The program will verify the file's integrity and authenticity before decryption.
 
 ## License
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
