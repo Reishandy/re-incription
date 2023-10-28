@@ -1,6 +1,6 @@
 # Re-Incription
 
-Re-Incription is a simple file encryption program using AES-256 CBC and PBKDF2HMAC for key derivation from a password. The program performs 16 rounds of encryption, with a different key for each round derived from the previous key using SHA3-256 Hash. It also checks for data integrity using SHA3-256.
+Re-Incription is a simple file encryption program using AES-256 CFB and PBKDF2HMAC for key derivation from a password. The program performs 16 rounds of encryption, with a different key for each round derived from the previous key using SHA3-256 Hash. It also checks for data integrity using SHA3-256.
 
 ## Table of Contents
 - [Installation](#installation)
@@ -46,7 +46,7 @@ python re-incription.py -d mydocument-encrypted.rei
 
 
 ## Features
-- File encryption and decryption using AES-256 CBC.
+- File encryption and decryption using AES-256 CFB.
 - Key derivation from password using PBKDF2HMAC with 480,000 iterations.
 - 16 rounds of encryption, each with a different key.
 - Data integrity check using SHA3-256.
