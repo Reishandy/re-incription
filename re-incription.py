@@ -22,7 +22,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description='''
 description:
-    A simple file encryption program using AES-256 CBC as the algorithm to encrypt the file and PBKDF2HMAC as the 
+    A simple file encryption program using AES-256 CFB as the algorithm to encrypt the file and PBKDF2HMAC as the 
     algorithm to get key from the provided password, the output file will be in .rei format.
     
     The program will encrypt the file for 16 rounds, each round will use different key derived from the previous key 
@@ -45,7 +45,7 @@ description:
                     encrypted data. seperated by DELIMITER_DATA: b'\\x01\\x00\\x01\\x00\\x01\\x00\\x01\\x00'
             
 features:
-    - Encrypt and decrypt file using AES-256 CBC
+    - Encrypt and decrypt file using AES-256 CFB
     - Encryption by password using PBKDF2HMAC with 480,000 iterations to derive the key
     - 16 rounds of encryption, different key for each round
     - Integrity check using SHA3-256
