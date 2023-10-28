@@ -1,51 +1,64 @@
-# Re-incription
-A simple command-line program for encrypting and decrypting any type of file using AES-256-CFB encryption and password derivation using PBKDF2HMAC. The encrypted files will be stored with a '.rei' extension.
+# Re-Incription
 
-# Description
-This Python program provides a user-friendly way to secure your files by encrypting them with strong encryption and password protection. The program offers the following features:
+Re-Incription is a simple file encryption program using AES-256 CBC and PBKDF2HMAC for key derivation from a password. The program performs 16 rounds of encryption, with a different key for each round derived from the previous key using SHA3-256 Hash. It also checks for data integrity using SHA3-256.
 
-- File Encryption: Encrypt any type of file for added security.
-- Integrity Check: Verify the integrity of the file using SHA3-512 to ensure it has not been tampered with.
-- Data Compression: Compress files before encryption to reduce their size (note that this works best on text files).
+## Table of Contents
+- [Installation](#installation)
+- [Usage](#usage)
+- [Examples](#examples)
+- [Features](#features)
+- [Notes](#notes)
+- [License](#license)
+- [Author](#author)
 
-# Author
-Muhammad Akbar Reishandy (isthisruxury@gmail.com)
-
-# Requirements
-Before using this program, make sure you have the following dependencies installed:
-
-- Python 3.7+: This program is written in Python. You can download Python from the official website.
-
-- Cryptography Library: To install the required libraries, run the following command:
+## Installation
+Clone this repository to your local machine, navigate to the cloned directory, and install the required dependencies:
 ```
-pip install cryptography
+bash git clone https://github.com/Reishandy/re-incription.git cd re-incription pip install -r requirements.txt
 ```
 
-# Usage
-To use this program, follow these simple instructions:
 
-- Encrypt a File:
+## Usage
+To encrypt a file:
 ```
-python rei.py -e <filename>
+python re-incription.py -e [options] filename
 ```
-Replace <filename> with the name of the file you want to encrypt. The program will prompt you for a password to protect the file.
+- [options]: Use -c to compress the file before encryption if desired.
+- filename: The name of the file to be encrypted (include the extension).
 
-- Decrypt an Encrypted File:
+To decrypt a file:
 ```
-python rei.py -d <encrypted_filename>
+python re-incription.py -d filename
 ```
-Replace <encrypted_filename> with the name of the encrypted file you want to decrypt. You will be prompted for the password used for encryption.
+- filename: The name of the encrypted .rei file.
 
-# Encryption Details
-- The program encrypts files using AES-256-CFB for 16 rounds with unique IV for each round.
-- Password derivation is performed using PBKDF2HMAC with SHA3-256 for 480,000 iterations.
-- Files are compressed before encryption.
-- SHA3-512 is used to verify the integrity of the file.
 
-# Note
-- The program doesn't accept filename with more than 1 dot ('.')
-- Password for encryption and decryption is inputted with getpass
-- The encryption mode is loseless, that means compression might not be efficient.
+## Examples
+Encrypt a file with compression:
+```
+python re-incription.py -e -c mydocument.txt
+```
 
-# Development
-This program was developed as part of a final project for a cryptography class.
+Decrypt an encrypted file:
+```
+python re-incription.py -d mydocument-encrypted.rei
+```
+
+
+## Features
+- File encryption and decryption using AES-256 CBC.
+- Key derivation from password using PBKDF2HMAC with 480,000 iterations.
+- 16 rounds of encryption, each with a different key.
+- Data integrity check using SHA3-256.
+- Option to compress file before encryption and automatic decompression during decryption.
+
+## Notes
+Password: When prompted for a password, you can type it securely without the characters being displayed in the terminal.
+
+File Type: Ensure that the file to be decrypted is of the .rei type. The program will verify the file's integrity and authenticity before decryption.
+
+## License
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+
+## Author
+Muhammad Akbar Reishandy - isthisruxury@gmail.com
