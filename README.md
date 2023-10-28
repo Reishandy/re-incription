@@ -14,7 +14,7 @@ Re-Incription is a simple file encryption program using AES-256 CFB and PBKDF2HM
 ## Installation
 Clone this repository to your local machine, navigate to the cloned directory, and install the required dependencies:
 ```
-bash git clone https://github.com/Reishandy/re-incription.git cd re-incription pip install -r requirements.txt
+git clone https://github.com/Reishandy/re-incription.git && cd re-incription && pip install -r requirements.txt
 ```
 
 
