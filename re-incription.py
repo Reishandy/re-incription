@@ -22,7 +22,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description='''
 description:
-    A simple file encryption program using AES-256 CFB as the algorithm to encrypt the file and PBKDF2HMAC as the 
+    A simple file encryption program using AES-256 CBC as the algorithm to encrypt the file and PBKDF2HMAC as the 
     algorithm to get key from the provided password, the output file will be in .rei format.
     
     The program will encrypt the file for 16 rounds, each round will use different key derived from the previous key 
@@ -45,7 +45,7 @@ description:
                     encrypted data. seperated by DELIMITER_DATA: b'\\x01\\x00\\x01\\x00\\x01\\x00\\x01\\x00'
             
 features:
-    - Encrypt and decrypt file using AES-256 CFB
+    - Encrypt and decrypt file using AES-256 CBC
     - Encryption by password using PBKDF2HMAC with 480,000 iterations to derive the key
     - 16 rounds of encryption, different key for each round
     - Integrity check using SHA3-256
@@ -80,81 +80,81 @@ author:
 
 
 def encryption_handler(password: str, file: str, compress_flag: bool):
-    print("=== ENCRYPTION ===")
+    print("\033[1;36;40m=== ENCRYPTION ===")
 
     # Get the key and salt
-    print("Deriving key from password...", end="", flush=True)
+    print("\033[1;34;40mDeriving key from password...", end="", flush=True)
     key, salt = derive_key(password)
-    print(" Done")
+    print("\033[1;32;40mDone")
 
     # Read the file raw
-    print("Reading the file...", end="", flush=True)
+    print("\033[1;34;40mReading the file...", end="", flush=True)
     try:
         with open(file, "rb") as f:
             data = f.read()
     except FileNotFoundError:
-        print(f" Failed\n!!! FILE '{file}' NOT FOUND !!!")
+        print(f"\033[1;31;40mFailed\n!!! FILE '{file}' NOT FOUND !!! \033[1;37;40m")
         exit(4)
-    print(" Done")
+    print("\033[1;32;40mDone")
 
     if compress_flag:
         # Compress the data
-        print("Compressing the data...", end="", flush=True)
+        print("\033[1;34;40mCompressing the data...", end="", flush=True)
         data = compress(data)
-        print(" Done")
+        print("\033[1;32;40mDone")
 
     # Encrypt the data for n-rounds
     data_round = data
     key_round = key
     for i in range(ENCRYPTION_ROUND):
-        print(f"Encrypting round {i + 1}...", end="", flush=True)
+        print(f"\033[1;34;40mEncrypting round {i + 1}...", end="", flush=True)
 
         # Encrypt the data_round
         encrypted_data, iv = encrypt(data_round, key_round)
 
         # Stitch the iv and encrypted_data and encrypt it further and
         data_round = iv + DELIMITER_DATA + encrypted_data
-        print(" Done")
+        print("\033[1;32;40mDone")
 
         # Generate new key for next round with hash of the previous key
-        print(f"Generating round {i + 2} key...", end="", flush=True)
+        print(f"\033[1;34;40mGenerating round {i + 2} key...", end="", flush=True)
         key_round = get_hash(key_round)
-        print(" Done")
+        print("\033[1;32;40mDone")
 
     # Prepare the data for writing
-    print("Preparing the encrypted data...", end="", flush=True)
+    print("\033[1;34;40mPreparing the encrypted data...", end="", flush=True)
     extension = file.split(".")[1].encode()
     compress_state = b"\x01" if compress_flag else b"\x00"
     data_ready = (compress_state + DELIMITER + extension + DELIMITER + get_hash(data_round) + DELIMITER +
                   salt + DELIMITER + data_round)
-    print(" Done")
+    print("\033[1;32;40mDone")
 
     # Write the encrypted data into file.rei
-    print("Writing the encrypted data...", end="", flush=True)
+    print("\033[1;34;40mWriting the encrypted data...", end="", flush=True)
     new_file = file.split(".")[0] + "-encrypted.rei"
     with open(new_file, "wb") as f:
         f.write(data_ready)
-    print(" Done")
+    print("\033[1;32;40mDone")
 
-    print("=== ENCRYPTION DONE ===")
-    print(f"Result: {new_file}")
+    print("\033[1;36;40m=== ENCRYPTION DONE ===")
+    print(f"\033[1;37;40mResult: {new_file}")
 
 
 def decryption_handler(password: str, file: str):
-    print("=== DECRYPTION ===")
+    print("\033[1;36;40m=== DECRYPTION ===")
 
     # Read the encrypted file
-    print("Reading the file...", end="", flush=True)
+    print("\033[1;34;40mReading the file...", end="", flush=True)
     try:
         with open(file, "rb") as f:
             data_get = f.read()
     except FileNotFoundError:
-        print(f" Failed\n!!! FILE '{file}' NOT FOUND !!!")
+        print(f"\033[1;31;40mFailed\n!!! FILE '{file}' NOT FOUND !!!\033[1;37;40m")
         exit(4)
-    print(" Done")
+    print("\033[1;32;40mDone")
 
     # Separate the component
-    print("Preparing the data...", end="", flush=True)
+    print("\033[1;34;40mPreparing the data...", end="", flush=True)
     component = data_get.split(DELIMITER)
 
     # Determining if the file is compressed
@@ -163,74 +163,68 @@ def decryption_handler(password: str, file: str):
     # Check if the file is of .rei type
     try:
         extension = component[1].decode()
-    except UnicodeDecodeError:
-        print(" Failed\n!!! WRONG FILE TYPE !!!")
-        exit(1)
-
-    # Another check if the file is of .rei type, mostly if the file is a unicode text file
-    try:
         data_hash = component[2]
         salt = component[3]
         data = component[4]
-    except IndexError:
-        print(" Failed\n!!! WRONG FILE TYPE !!!")
+    except IndexError or UnicodeDecodeError:
+        print("\033[1;31;40mFailed\n!!! WRONG FILE TYPE !!!\033[1;37;40m")
         exit(1)
 
-    print(" Done")
-    print("--- FILE IS COMPRESSED --- " if compress_flag else "--- FILE IS NOT COMPRESSED ---")
+    print("\033[1;32;40mDone")
+    print("\033[1;36;40m--- FILE IS COMPRESSED --- " if compress_flag else "\033[1;36;40m--- FILE IS NOT COMPRESSED ---")
 
     # Verify the hash
-    print("Verifying hash...", end="", flush=True)
+    print("\033[1;34;40mVerifying hash...", end="", flush=True)
     if not data_hash == get_hash(data):
-        print(" Failed\n!!! HASH DOES NOT MATCH !!!")
+        print("\033[1;31;40mFailed\n!!! HASH DOES NOT MATCH !!!\033[1;37;40m")
         exit(2)
-    print(" Done")
+    print("\033[1;32;40mDone")
 
     # Get the key
-    print("Deriving key from password...", end="", flush=True)
+    print("\033[1;34;40mDeriving key from password...", end="", flush=True)
     key = get_key(password, salt)
-    print(" Done")
+    print("\033[1;32;40mDone")
 
     # Create a list of key used for decryption
-    print("Generating round keys... ", end="", flush=True)
+    print("\033[1;34;40mGenerating round keys... ", end="", flush=True)
     key_round = []
     for i in range(ENCRYPTION_ROUND):
-        print(f"{i + 1}, " if i < ENCRYPTION_ROUND - 1 else f"{i + 1}\n", end="", flush=True)
+        print(f"\033[1;32;40m{i + 1}, " if i < ENCRYPTION_ROUND - 1 else f"{i + 1}\n", end="", flush=True)
         key_round.append(key)
         key = get_hash(key)
 
     # Decrypt the data for n-round
     data_round = data
     for i in range(ENCRYPTION_ROUND):
-        print(f"Decrypting round {ENCRYPTION_ROUND - i}...", end="", flush=True)
+        print(f"\033[1;34;40mDecrypting round {ENCRYPTION_ROUND - i}...", end="", flush=True)
 
         # Separate the iv and encrypted_data
         try:
             iv, encrypted_data = data_round.split(DELIMITER_DATA)
         except ValueError:
-            print(" Failed\n!!! WRONG PASSWORD !!!")
+            print("\033[1;31;40mFailed\n!!! WRONG PASSWORD !!!\033[1;37;40m")
             exit(3)
 
         # Decrypt the data_round
         data_round = decrypt(encrypted_data, key_round[ENCRYPTION_ROUND - i - 1], iv)
 
-        print(" Done")
+        print("\033[1;32;40mDone")
 
     if compress_flag == "compressed":
         # Decompress the data
-        print("Decompressing the data...", end="", flush=True)
+        print("\033[1;34;40mDecompressing the data...", end="", flush=True)
         data_round = decompress(data_round)
-        print(" Done")
+        print("\033[1;32;40mDone")
 
     # Write the decrypted data
-    print("writing the decrypted data...", end="", flush=True)
+    print("\033[1;34;40mWriting the decrypted data...", end="", flush=True)
     new_file = file.split(".")[0] + "-decrypted." + extension
     with open(new_file, "wb") as f:
         f.write(data_round)
-    print(" Done")
+    print("\033[1;32;40mDone")
 
-    print("=== DECRYPTION DONE ===")
-    print(f"Result: {new_file}")
+    print("\033[1;36;40m=== DECRYPTION DONE ===")
+    print(f"\033[1;37;40mResult: {new_file}")
 
 
 def derive_key(password: str) -> (bytes, bytes):
