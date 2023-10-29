@@ -1,5 +1,6 @@
 """Author: Reishandy (isthisruxury@gmail.com"""
 import argparse
+from os.path import getsize
 from secrets import token_bytes
 from zlib import compress, decompress
 from getpass import getpass
@@ -16,6 +17,7 @@ SECONDARY_LENGTH: int = 16
 PRIMARY_LENGTH: int = 32
 DELIMITER: bytes = b'\x00\x01\x00\x01\x00\x01\x00\x01'
 DELIMITER_DATA: bytes = b'\x01\x00\x01\x00\x01\x00\x01\x00'
+CHUNK_SIZE: int = 1_048_576
 
 
 def main():
@@ -81,21 +83,14 @@ author:
 
 
 def encryption_handler(password: str, file: str, compress_flag: bool):
-    print("\033[1;36;40m=== ENCRYPTION ===")
+    print("\033[1;36;40m=== ENCRYPTION ===\033[1;34;40m")
+
+    # Read the file raw
+    data = read_file(file)
 
     # Get the key and salt
     print("\033[1;34;40mDeriving key from password...", end="", flush=True)
     key, salt = derive_key(password)
-    print("\033[1;32;40mDone")
-
-    # Read the file raw
-    print("\033[1;34;40mReading the file...", end="", flush=True)
-    try:
-        with open(file, "rb") as f:
-            data = f.read()
-    except FileNotFoundError:
-        print(f"\033[1;31;40mFailed\n!!! FILE '{file}' NOT FOUND !!! \033[1;37;40m")
-        exit(4)
     print("\033[1;32;40mDone\033[1;34;40m")
 
     if compress_flag:
@@ -123,31 +118,21 @@ def encryption_handler(password: str, file: str, compress_flag: bool):
     compress_state = b"\x01" if compress_flag else b"\x00"
     data_ready = (compress_state + DELIMITER + extension + DELIMITER + get_hash(data_round) + DELIMITER +
                   salt + DELIMITER + data_round)
-    print("\033[1;32;40mDone")
+    print("\033[1;32;40mDone\033[1;34;40m")
 
     # Write the encrypted data into file.rei
-    print("\033[1;34;40mWriting the encrypted data...", end="", flush=True)
     new_file = file.split(".")[0] + "-encrypted.rei"
-    with open(new_file, "wb") as f:
-        f.write(data_ready)
-    print("\033[1;32;40mDone")
+    write_file(new_file, data_ready)
 
     print("\033[1;36;40m=== ENCRYPTION DONE ===")
     print(f"\033[1;37;40mResult: {new_file}")
 
 
 def decryption_handler(password: str, file: str):
-    print("\033[1;36;40m=== DECRYPTION ===")
+    print("\033[1;36;40m=== DECRYPTION ===\033[1;34;40m")
 
     # Read the encrypted file
-    print("\033[1;34;40mReading the file...", end="", flush=True)
-    try:
-        with open(file, "rb") as f:
-            data_get = f.read()
-    except FileNotFoundError:
-        print(f"\033[1;31;40mFailed\n!!! FILE '{file}' NOT FOUND !!!\033[1;37;40m")
-        exit(4)
-    print("\033[1;32;40mDone")
+    data_get = read_file(file)
 
     # Separate the component
     print("\033[1;34;40mPreparing the data...", end="", flush=True)
@@ -163,7 +148,7 @@ def decryption_handler(password: str, file: str):
         salt = component[3]
         data = component[4]
     except IndexError or UnicodeDecodeError:
-        print("\033[1;31;40mFailed\n!!! WRONG FILE TYPE !!!\033[1;37;40m")
+        print("\033[1;31;40m\n!!! WRONG FILE TYPE !!!\033[1;37;40m")
         exit(1)
 
     print("\033[1;32;40mDone")
@@ -173,20 +158,22 @@ def decryption_handler(password: str, file: str):
     # Verify the hash
     print("\033[1;34;40mVerifying hash...", end="", flush=True)
     if not data_hash == get_hash(data):
-        print("\033[1;31;40mFailed\n!!! HASH DOES NOT MATCH !!!\033[1;37;40m")
+        print("\033[1;31;40m\n!!! HASH DOES NOT MATCH !!!\033[1;37;40m")
         exit(2)
     print("\033[1;32;40mDone")
 
     # Get the key
     print("\033[1;34;40mDeriving key from password...", end="", flush=True)
     key = get_key(password, salt)
-    print("\033[1;32;40mDone\033[1;34;40m")
+    print("\033[1;32;40mDone")
 
     # Create a list of key used for decryption
+    print("\033[1;34;40mGenerating round key...", end="", flush=True)
     key_round = []
-    for _ in tqdm(range(ENCRYPTION_ROUND), desc="Generating round key", unit="round"):
+    for _ in range(ENCRYPTION_ROUND):
         key_round.append(key)
         key = get_hash(key)
+    print("\033[1;32;40mDone\033[1;34;40m")
 
     # Decrypt the data for n-round
     data_round = data
@@ -195,27 +182,53 @@ def decryption_handler(password: str, file: str):
         try:
             iv, encrypted_data = data_round.split(DELIMITER_DATA)
         except ValueError:
-            print("\033[1;31;40mFailed\n!!! WRONG PASSWORD !!!\033[1;37;40m")
+            print("\033[1;31;40m\n!!! WRONG PASSWORD !!!\033[1;37;40m")
             exit(3)
 
         # Decrypt the data_round
         data_round = decrypt(encrypted_data, key_round[ENCRYPTION_ROUND - i - 1], iv)
 
-    if compress_flag == "compressed":
+    if compress_flag:
         # Decompress the data
         print("\033[1;34;40mDecompressing the data...", end="", flush=True)
         data_round = decompress(data_round)
-        print("\033[1;32;40mDone")
+        print("\033[1;32;40mDone\033[1;34;40m")
 
     # Write the decrypted data
-    print("\033[1;34;40mWriting the decrypted data...", end="", flush=True)
     new_file = file.split(".")[0] + "-decrypted." + extension
-    with open(new_file, "wb") as f:
-        f.write(data_round)
-    print("\033[1;32;40mDone")
+    write_file(new_file, data_round)
 
     print("\033[1;36;40m=== DECRYPTION DONE ===")
     print(f"\033[1;37;40mResult: {new_file}")
+
+
+def write_file(new_file: str, data: bytes):
+    with open(new_file, "wb") as f:
+        with tqdm(f, total=len(data), desc="Writing    ", unit="Bytes",
+                  unit_scale=True, unit_divisor=1024) as pbar:
+            for i in range(0, len(data), CHUNK_SIZE):
+                chunk = data[i:i + CHUNK_SIZE]
+                f.write(chunk)
+                pbar.update(len(chunk))
+
+
+def read_file(file: str) -> bytes:
+    data = b''
+    try:
+        file_size = getsize(file)
+        with open(file, "rb") as f:
+            with tqdm(f, total=file_size, desc="Reading    ", unit="Bytes",
+                      unit_scale=True, unit_divisor=1024) as pbar:
+                while True:
+                    chunk = f.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    data += chunk
+                    pbar.update(len(chunk))
+    except FileNotFoundError:
+        print(f"\033[1;31;40m\n!!! FILE '{file}' NOT FOUND !!!\033[1;37;40m")
+        exit(4)
+    return data
 
 
 def derive_key(password: str) -> (bytes, bytes):
