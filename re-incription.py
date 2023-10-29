@@ -4,6 +4,7 @@ from secrets import token_bytes
 from zlib import compress, decompress
 from getpass import getpass
 
+from tqdm import tqdm
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -95,31 +96,26 @@ def encryption_handler(password: str, file: str, compress_flag: bool):
     except FileNotFoundError:
         print(f"\033[1;31;40mFailed\n!!! FILE '{file}' NOT FOUND !!! \033[1;37;40m")
         exit(4)
-    print("\033[1;32;40mDone")
+    print("\033[1;32;40mDone\033[1;34;40m")
 
     if compress_flag:
         # Compress the data
         print("\033[1;34;40mCompressing the data...", end="", flush=True)
         data = compress(data)
-        print("\033[1;32;40mDone")
+        print("\033[1;32;40mDone\033[1;34;40m")
 
     # Encrypt the data for n-rounds
     data_round = data
     key_round = key
-    for i in range(ENCRYPTION_ROUND):
-        print(f"\033[1;34;40mEncrypting round {i + 1}...", end="", flush=True)
-
+    for _ in tqdm(range(ENCRYPTION_ROUND), desc="Encrypting ", unit="round"):
         # Encrypt the data_round
         encrypted_data, iv = encrypt(data_round, key_round)
 
         # Stitch the iv and encrypted_data and encrypt it further and
         data_round = iv + DELIMITER_DATA + encrypted_data
-        print("\033[1;32;40mDone")
 
         # Generate new key for next round with hash of the previous key
-        print(f"\033[1;34;40mGenerating round {i + 2} key...", end="", flush=True)
         key_round = get_hash(key_round)
-        print("\033[1;32;40mDone")
 
     # Prepare the data for writing
     print("\033[1;34;40mPreparing the encrypted data...", end="", flush=True)
@@ -171,7 +167,8 @@ def decryption_handler(password: str, file: str):
         exit(1)
 
     print("\033[1;32;40mDone")
-    print("\033[1;36;40m--- FILE IS COMPRESSED --- " if compress_flag else "\033[1;36;40m--- FILE IS NOT COMPRESSED ---")
+    print("\033[1;36;40m--- FILE IS COMPRESSED --- " if compress_flag
+          else "\033[1;36;40m--- FILE IS NOT COMPRESSED ---")
 
     # Verify the hash
     print("\033[1;34;40mVerifying hash...", end="", flush=True)
@@ -183,21 +180,17 @@ def decryption_handler(password: str, file: str):
     # Get the key
     print("\033[1;34;40mDeriving key from password...", end="", flush=True)
     key = get_key(password, salt)
-    print("\033[1;32;40mDone")
+    print("\033[1;32;40mDone\033[1;34;40m")
 
     # Create a list of key used for decryption
-    print("\033[1;34;40mGenerating round keys... ", end="", flush=True)
     key_round = []
-    for i in range(ENCRYPTION_ROUND):
-        print(f"\033[1;32;40m{i + 1}, " if i < ENCRYPTION_ROUND - 1 else f"{i + 1}\n", end="", flush=True)
+    for _ in tqdm(range(ENCRYPTION_ROUND), desc="Generating round key", unit="round"):
         key_round.append(key)
         key = get_hash(key)
 
     # Decrypt the data for n-round
     data_round = data
-    for i in range(ENCRYPTION_ROUND):
-        print(f"\033[1;34;40mDecrypting round {ENCRYPTION_ROUND - i}...", end="", flush=True)
-
+    for i in tqdm(range(ENCRYPTION_ROUND), desc="Decrypting ", unit="round"):
         # Separate the iv and encrypted_data
         try:
             iv, encrypted_data = data_round.split(DELIMITER_DATA)
@@ -207,8 +200,6 @@ def decryption_handler(password: str, file: str):
 
         # Decrypt the data_round
         data_round = decrypt(encrypted_data, key_round[ENCRYPTION_ROUND - i - 1], iv)
-
-        print("\033[1;32;40mDone")
 
     if compress_flag == "compressed":
         # Decompress the data
