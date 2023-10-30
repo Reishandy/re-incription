@@ -60,30 +60,27 @@ author:
         ''',
         epilog="developed for final project on cryptography class"
     )
-    parser.add_argument("-e", "--encrypt", action="store_true", help="encryption mode")
-    parser.add_argument("-d", "--decrypt", action="store_true", help="decryption mode")
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-e", "--encrypt", action="store_true", help="encryption mode")
+    group.add_argument("-d", "--decrypt", action="store_true", help="decryption mode")
+
     parser.add_argument("-c", "--compress", action="store_true", help="compress the file before encryption")
     parser.add_argument("filename", help="file to be operated, do not use any dot ('.') on the filename input"
                                          "except for the extension")
     args = parser.parse_args()
 
-    check_filename = args.filename.split(".")
-    if len(check_filename) > 2 or len(check_filename) < 2:
-        parser.error(f"Not suitable filename: {args.filename}")
-
-    if args.encrypt and args.decrypt:
-        parser.error("Only one mode can be executed at once: -e or -d")
-    elif args.encrypt:
-        # Password is from getpass() to hide it from the terminal
+    if args.encrypt:
         encryption_handler(getpass(), args.filename, args.compress)
     elif args.decrypt:
         decryption_handler(getpass(), args.filename)
-    else:
-        parser.error("No mode selected: -e or -d")
 
 
 def encryption_handler(password: str, file: str, compress_flag: bool):
     print("\033[1;36;40m=== ENCRYPTION ===\033[1;34;40m")
+
+    # Checking filename
+    check_filename(file)
 
     # Read the file raw
     data = read_file(file)
@@ -131,6 +128,9 @@ def encryption_handler(password: str, file: str, compress_flag: bool):
 def decryption_handler(password: str, file: str):
     print("\033[1;36;40m=== DECRYPTION ===\033[1;34;40m")
 
+    # Checking filename
+    check_filename(file)
+
     # Read the encrypted file
     data_get = read_file(file)
 
@@ -148,7 +148,7 @@ def decryption_handler(password: str, file: str):
         salt = component[3]
         data = component[4]
     except IndexError or UnicodeDecodeError:
-        print("\033[1;31;40m\n!!! WRONG FILE TYPE !!!\033[1;37;40m")
+        print("\033[1;31;40mFailed\n!!! WRONG FILE TYPE !!!\033[1;37;40m")
         exit(1)
 
     print("\033[1;32;40mDone")
@@ -158,7 +158,7 @@ def decryption_handler(password: str, file: str):
     # Verify the hash
     print("\033[1;34;40mVerifying hash...", end="", flush=True)
     if not data_hash == get_hash(data):
-        print("\033[1;31;40m\n!!! HASH DOES NOT MATCH !!!\033[1;37;40m")
+        print("\033[1;31;40mFailed\n!!! HASH DOES NOT MATCH !!!\033[1;37;40m")
         exit(2)
     print("\033[1;32;40mDone")
 
@@ -200,6 +200,13 @@ def decryption_handler(password: str, file: str):
 
     print("\033[1;36;40m=== DECRYPTION DONE ===")
     print(f"\033[1;37;40mResult: {new_file}")
+
+
+def check_filename(file: str):
+    filename = file.split(".")
+    if len(filename) > 2 or len(filename) < 2:
+        print("\033[1;31;40m!!! FILENAME NOT SUITABLE !!!\033[1;37;40m")
+        exit(5)
 
 
 def write_file(new_file: str, data: bytes):
