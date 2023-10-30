@@ -16,6 +16,12 @@ Clone this repository to your local machine, navigate to the cloned directory, a
 ```
 git clone https://github.com/Reishandy/re-incription.git && cd re-incription && pip install -r requirements.txt
 ```
+or
+```commandline
+git clone https://github.com/Reishandy/re-incription.git
+cd re-incription
+pip install -r requirements.txt
+```
 
 
 ## Usage
