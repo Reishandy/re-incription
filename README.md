@@ -20,33 +20,58 @@ git clone https://github.com/Reishandy/re-incription.git && cd re-incription && 
 
 ## Usage
 To encrypt a file:
+```commandline
+python re-incription.py -e options filename
 ```
-python re-incription.py -e [options] filename
-```
-- [options]: Use -c to compress the file before encryption if desired.
+- options: Use -c to compress the file before encryption if desired.
 - filename: The name of the file to be encrypted (include the extension).
 
 To decrypt a file:
-```
+```commandline
 python re-incription.py -d filename
 ```
 - filename: The name of the encrypted .rei file.
 
+To encrypt a dir:
+```commandline
+python re-incription.py -E options dirname
+```
+- options: Use -c to compress the file before encryption if desired.
+- dirname: The name of the dir to be encrypted (only the dir name).
+
+To decrypt a dir:
+```commandline
+python re-incription.py -D dirname
+```
+- dirname: The name of the dir to be decrypted (only the dir name).
+
+
 
 ## Examples
 Encrypt a file with compression:
-```
+```commandline
 python re-incription.py -e -c mydocument.txt
 ```
 
 Decrypt an encrypted file:
-```
+```commandline
 python re-incription.py -d mydocument-encrypted.rei
+```
+
+Encrypt a dir with compression:
+```commandline
+python re-incription.py -E -c myDir
+```
+
+Decrypt an encrypted dir:
+```commandline
+python re-incription.py -D myDir-encrypted
 ```
 
 
 ## Features
 - File encryption and decryption using AES-256 CFB.
+- Folder encryption and decryption.
 - Key derivation from password using PBKDF2HMAC with 480,000 iterations.
 - 16 rounds of encryption, each with a different key.
 - Data integrity check using SHA3-256.

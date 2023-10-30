@@ -1,6 +1,8 @@
 """Author: Reishandy (isthisruxury@gmail.com"""
 import argparse
-from os.path import getsize
+from os.path import getsize, join, exists, isdir
+from os import getcwd, makedirs, walk, remove
+from shutil import copytree
 from secrets import token_bytes
 from zlib import compress, decompress
 from getpass import getpass
@@ -49,6 +51,7 @@ description:
             
 features:
     - Encrypt and decrypt file using AES-256 CBC
+    - Encrypt and decrypt entire folder
     - Encryption by password using PBKDF2HMAC with 480,000 iterations to derive the key
     - 16 rounds of encryption, different key for each round
     - Integrity check using SHA3-256
@@ -62,21 +65,42 @@ author:
     )
 
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-e", "--encrypt", action="store_true", help="encryption mode")
-    group.add_argument("-d", "--decrypt", action="store_true", help="decryption mode")
+    group.add_argument("-e", "--encrypt", action="store_true", help="file encryption mode")
+    group.add_argument("-d", "--decrypt", action="store_true", help="file decryption mode")
+    group.add_argument("-E", "--encrypt_dir", action="store_true", help="dir encryption mode")
+    group.add_argument("-D", "--decrypt_dir", action="store_true", help="dir decryption mode")
 
     parser.add_argument("-c", "--compress", action="store_true", help="compress the file before encryption")
-    parser.add_argument("filename", help="file to be operated, do not use any dot ('.') on the filename input"
-                                         "except for the extension")
+    parser.add_argument("path", help="path to the file or directory to be operated")
     args = parser.parse_args()
 
     if args.encrypt:
-        encryption_handler(getpass(), args.filename, args.compress)
+        # Getting the key
+        password = getpass()
+        print("\033[1;34;40mDeriving key from password...", end="", flush=True)
+        key, salt = derive_key(password)
+        print("\033[1;32;40mDone\033[1;34;40m")
+
+        # Encrypt the file
+        encryption_handler(key, salt, args.path, args.compress)
     elif args.decrypt:
-        decryption_handler(getpass(), args.filename)
+        # Decrypt the file (password needs to be generated with the salt form the file)
+        decryption_handler(getpass(), args.path)
+    elif args.encrypt_dir:
+        # Getting the key
+        password = getpass()
+        print("\033[1;34;40mDeriving key from password...", end="", flush=True)
+        key, salt = derive_key(password)
+        print("\033[1;32;40mDone\033[1;34;40m")
+
+        # Encrypt the dir
+        dir_encryption_handler(key, salt, args.path, args.compress)
+    elif args.decrypt_dir:
+        # Decrypt the dir
+        dir_decryption_handler(getpass(), args.path)
 
 
-def encryption_handler(password: str, file: str, compress_flag: bool):
+def encryption_handler(key: bytes, salt: bytes, file: str, compress_flag: bool):
     print("\033[1;36;40m=== ENCRYPTION ===\033[1;34;40m")
 
     # Checking filename
@@ -84,11 +108,6 @@ def encryption_handler(password: str, file: str, compress_flag: bool):
 
     # Read the file raw
     data = read_file(file)
-
-    # Get the key and salt
-    print("\033[1;34;40mDeriving key from password...", end="", flush=True)
-    key, salt = derive_key(password)
-    print("\033[1;32;40mDone\033[1;34;40m")
 
     if compress_flag:
         # Compress the data
@@ -200,6 +219,94 @@ def decryption_handler(password: str, file: str):
 
     print("\033[1;36;40m=== DECRYPTION DONE ===")
     print(f"\033[1;37;40mResult: {new_file}")
+
+
+def dir_encryption_handler(key: bytes, salt: bytes, directory: str, compress_flag: bool):
+    print(f"\033[1;36;40m=== DIR ENCRYPTION ===\033[1;34;40m")
+    # Check dirname
+    check_dirname(directory)
+
+    # Update the directory_path
+    directory_path = join(getcwd(), directory)
+
+    # Check if dir exist
+    check_dir_exist(directory_path)
+
+    # Create a new directory
+    encrypted_dir = directory_path + "-encrypted"
+    print(f"\033[1;34;40mCopying files to {encrypted_dir}...", end="", flush=True)
+    makedirs(directory_path, exist_ok=True)
+    print("\033[1;32;40mDone")
+
+    # Copy the entire dir to the new encrypted dir
+    try:
+        copytree(directory_path, encrypted_dir)
+    except FileExistsError:
+        print("\033[1;31;40m!!! DIR ALREADY EXIST !!!\033[1;37;40m")
+        exit(6)
+
+    # The actual encryption process
+    for folder_name, sub_folders, filenames in walk(encrypted_dir):
+        for filename in filenames:
+            print(f"\033[1;36;40m=== Encrypting {filename} ===\033[1;34;40m")
+            file_path = join(folder_name, filename)
+            encryption_handler(key, salt, file_path, compress_flag)
+            remove(file_path)
+
+    print(f"\033[1;36;40m=== DIR ENCRYPTION DONE ===\033[1;34;40m")
+    print(f"\033[1;37;40mResult: {encrypted_dir}")
+
+
+def dir_decryption_handler(password: str, directory: str):
+    print(f"\033[1;36;40m=== DIR DECRYPTION ===\033[1;34;40m")
+    # Check dirname
+    check_dirname(directory)
+
+    # Update the directory_path
+    directory_path = join(getcwd(), directory)
+
+    # Check if dir exist
+    check_dir_exist(directory_path)
+
+    # Create a new directory
+    decrypted_dir = directory_path + "-decrypted"
+    print(f"\033[1;34;40mCopying files to {decrypted_dir}...", end="", flush=True)
+    makedirs(directory_path, exist_ok=True)
+    print("\033[1;32;40mDone")
+
+    # Copy the entire dir to the new encrypted dir
+    try:
+        copytree(directory_path, decrypted_dir)
+    except FileExistsError:
+        print("\033[1;31;40m!!! DIR ALREADY EXIST !!!\033[1;37;40m")
+        exit(6)
+
+    # The actual decryption process
+    for folder_name, sub_folders, filenames in walk(decrypted_dir):
+        for filename in filenames:
+            print(f"\033[1;36;40m=== Decrypting {filename} ===\033[1;34;40m")
+            file_path = join(folder_name, filename)
+            decryption_handler(password, file_path)
+            remove(file_path)
+
+    print(f"\033[1;36;40m=== DIR DECRYPTION DONE ===\033[1;34;40m")
+    print(f"\033[1;37;40mResult: {decrypted_dir}")
+
+
+def check_dir_exist(check_dir: str):
+    if exists(check_dir):
+        if not isdir(check_dir):
+            print(f"\033[1;31;40m!!! {check_dir} IS NOT A DIRECTORY !!!\033[1;37;40m")
+            exit(7)
+    else:
+        print("\033[1;31;40m!!! DIR NOT FOUND !!!\033[1;37;40m")
+        exit(7)
+
+
+def check_dirname(path: str):
+    if "\\" in path or "/" in path:
+        print("\033[1;31;40m!!! PATH DIR NOT SUITABLE !!!\033[1;37;40m")
+        exit(5)
 
 
 def check_filename(file: str):
