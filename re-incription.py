@@ -1,16 +1,16 @@
 """Author: Reishandy (isthisruxury@gmail.com"""
 import argparse
-from os.path import getsize, join, exists, isdir
-from os import getcwd, makedirs, walk, remove
-from shutil import copytree
-from secrets import token_bytes
-from zlib import compress, decompress
 from getpass import getpass
+from os import getcwd, makedirs, walk, remove
+from os.path import getsize, join, exists, isdir
+from secrets import token_bytes
+from shutil import copytree
+from zlib import compress, decompress
 
-from tqdm import tqdm
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from tqdm import tqdm
 
 # Constants
 ENCRYPTION_ROUND: int = 16
@@ -21,8 +21,13 @@ DELIMITER: bytes = b'\x00\x01\x00\x01\x00\x01\x00\x01'
 DELIMITER_DATA: bytes = b'\x01\x00\x01\x00\x01\x00\x01\x00'
 CHUNK_SIZE: int = 1_048_576
 
+# Global variables for silent mode
+SILENT: bool = False
+
 
 def main():
+    global SILENT
+
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description='''
@@ -63,6 +68,7 @@ author:
         ''',
         epilog="developed for final project on cryptography class"
     )
+    parser.add_argument("-v", "--version", action="version", version="Version: 2.3")
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-e", "--encrypt", action="store_true", help="file encryption mode")
@@ -70,38 +76,49 @@ author:
     group.add_argument("-E", "--encrypt_dir", action="store_true", help="dir encryption mode")
     group.add_argument("-D", "--decrypt_dir", action="store_true", help="dir decryption mode")
 
-    parser.add_argument("-c", "--compress", action="store_true", help="compress the file before encryption")
     parser.add_argument("path", help="path to the file or directory to be operated")
+    parser.add_argument("-c", "--compress", action="store_true", help="compress the file before encryption")
+    parser.add_argument("-o", "--output", help="output file name, no extension")
+    parser.add_argument("-s", "--silent", action="store_true", help="silent mode, no output except error "
+                                                                    "and result. usually faster")
     args = parser.parse_args()
+
+    # Check if silent mode is on
+    if args.silent:
+        SILENT = True
+
+    # Check if output filename is suitable, no path and no extension just filename. using regex
+    if args.output:
+        if "\\" in args.output or "/" in args.output or "." in args.output:
+            if not SILENT:
+                print(f"\033[1;31;40m!!! OUTPUT FILENAME NOT SUITABLE: {args.output} !!!\033[1;37;40m")
+            exit(5)
 
     if args.encrypt:
         # Getting the key
-        password = getpass()
-        print("\033[1;34;40mDeriving key from password...", end="", flush=True)
-        key, salt = derive_key(password)
-        print("\033[1;32;40mDone\033[1;34;40m")
+        key, salt = input_key()
 
         # Encrypt the file
-        encryption_handler(key, salt, args.path, args.compress)
+        encryption_handler(key, salt, args.path, args.compress, args.output)
     elif args.decrypt:
         # Decrypt the file (password needs to be generated with the salt form the file)
-        decryption_handler(getpass(), args.path)
+        decryption_handler(getpass(), args.path, args.output)
     elif args.encrypt_dir:
         # Getting the key
-        password = getpass()
-        print("\033[1;34;40mDeriving key from password...", end="", flush=True)
-        key, salt = derive_key(password)
-        print("\033[1;32;40mDone\033[1;34;40m")
+        key, salt = input_key()
 
         # Encrypt the dir
-        dir_encryption_handler(key, salt, args.path, args.compress)
+        dir_encryption_handler(key, salt, args.path, args.compress, args.output)
     elif args.decrypt_dir:
         # Decrypt the dir
-        dir_decryption_handler(getpass(), args.path)
+        dir_decryption_handler(getpass(), args.path, args.output)
 
 
-def encryption_handler(key: bytes, salt: bytes, file: str, compress_flag: bool):
-    print("\033[1;36;40m=== ENCRYPTION ===\033[1;34;40m")
+def encryption_handler(key: bytes, salt: bytes, file: str, compress_flag: bool, output: str):
+    global SILENT
+
+    if not SILENT:
+        print("\033[1;36;40m=== ENCRYPTION ===\033[1;34;40m")
 
     # Checking filename
     check_filename(file)
@@ -111,14 +128,22 @@ def encryption_handler(key: bytes, salt: bytes, file: str, compress_flag: bool):
 
     if compress_flag:
         # Compress the data
-        print("\033[1;34;40mCompressing the data...", end="", flush=True)
+        if not SILENT:
+            print("\033[1;34;40mCompressing the data...", end="", flush=True)
         data = compress(data)
-        print("\033[1;32;40mDone\033[1;34;40m")
+        if not SILENT:
+            print("\033[1;32;40mDone\033[1;34;40m")
 
     # Encrypt the data for n-rounds
     data_round = data
     key_round = key
-    for _ in tqdm(range(ENCRYPTION_ROUND), desc="Encrypting ", unit="round"):
+
+    if not SILENT:
+        iterable = tqdm(range(ENCRYPTION_ROUND), desc="Encrypting ", unit="round")
+    else:
+        iterable = range(ENCRYPTION_ROUND)
+
+    for _ in iterable:
         # Encrypt the data_round
         encrypted_data, iv = encrypt(data_round, key_round)
 
@@ -129,23 +154,32 @@ def encryption_handler(key: bytes, salt: bytes, file: str, compress_flag: bool):
         key_round = get_hash(key_round)
 
     # Prepare the data for writing
-    print("\033[1;34;40mPreparing the encrypted data...", end="", flush=True)
+    if not SILENT:
+        print("\033[1;34;40mPreparing the encrypted data...", end="", flush=True)
     extension = file.split(".")[1].encode()
     compress_state = b"\x01" if compress_flag else b"\x00"
     data_ready = (compress_state + DELIMITER + extension + DELIMITER + get_hash(data_round) + DELIMITER +
                   salt + DELIMITER + data_round)
-    print("\033[1;32;40mDone\033[1;34;40m")
+    if not SILENT:
+        print("\033[1;32;40mDone\033[1;34;40m")
 
     # Write the encrypted data into file.rei
-    new_file = file.split(".")[0] + "-encrypted.rei"
+    if output:
+        new_file = output + ".rei"
+    else:
+        new_file = file.split(".")[0] + ".rei"
     write_file(new_file, data_ready)
 
-    print("\033[1;36;40m=== ENCRYPTION DONE ===")
+    if not SILENT:
+        print("\033[1;36;40m=== ENCRYPTION DONE ===")
     print(f"\033[1;37;40mResult: {new_file}")
 
 
-def decryption_handler(password: str, file: str):
-    print("\033[1;36;40m=== DECRYPTION ===\033[1;34;40m")
+def decryption_handler(password: str, file: str, output: str):
+    global SILENT
+
+    if not SILENT:
+        print("\033[1;36;40m=== DECRYPTION ===\033[1;34;40m")
 
     # Checking filename
     check_filename(file)
@@ -154,7 +188,8 @@ def decryption_handler(password: str, file: str):
     data_get = read_file(file)
 
     # Separate the component
-    print("\033[1;34;40mPreparing the data...", end="", flush=True)
+    if not SILENT:
+        print("\033[1;34;40mPreparing the data...", end="", flush=True)
     component = data_get.split(DELIMITER)
 
     # Determining if the file is compressed
@@ -170,33 +205,47 @@ def decryption_handler(password: str, file: str):
         print("\033[1;31;40mFailed\n!!! WRONG FILE TYPE !!!\033[1;37;40m")
         exit(1)
 
-    print("\033[1;32;40mDone")
-    print("\033[1;36;40m--- FILE IS COMPRESSED --- " if compress_flag
-          else "\033[1;36;40m--- FILE IS NOT COMPRESSED ---")
+    if not SILENT:
+        print("\033[1;32;40mDone")
+    if not SILENT:
+        print("\033[1;36;40m--- FILE IS COMPRESSED --- " if compress_flag else "\033[1;36;40m--- FILE IS NOT "
+                                                                               "COMPRESSED ---")
 
     # Verify the hash
-    print("\033[1;34;40mVerifying hash...", end="", flush=True)
+    if not SILENT:
+        print("\033[1;34;40mVerifying hash...", end="", flush=True)
     if not data_hash == get_hash(data):
         print("\033[1;31;40mFailed\n!!! HASH DOES NOT MATCH !!!\033[1;37;40m")
         exit(2)
-    print("\033[1;32;40mDone")
+    if not SILENT:
+        print("\033[1;32;40mDone")
 
     # Get the key
-    print("\033[1;34;40mDeriving key from password...", end="", flush=True)
+    if not SILENT:
+        print("\033[1;34;40mDeriving key from password...", end="", flush=True)
     key = get_key(password, salt)
-    print("\033[1;32;40mDone")
+    if not SILENT:
+        print("\033[1;32;40mDone")
 
     # Create a list of key used for decryption
-    print("\033[1;34;40mGenerating round key...", end="", flush=True)
+    if not SILENT:
+        print("\033[1;34;40mGenerating round key...", end="", flush=True)
     key_round = []
     for _ in range(ENCRYPTION_ROUND):
         key_round.append(key)
         key = get_hash(key)
-    print("\033[1;32;40mDone\033[1;34;40m")
+    if not SILENT:
+        print("\033[1;32;40mDone\033[1;34;40m")
 
     # Decrypt the data for n-round
     data_round = data
-    for i in tqdm(range(ENCRYPTION_ROUND), desc="Decrypting ", unit="round"):
+
+    if not SILENT:
+        iterable = tqdm(range(ENCRYPTION_ROUND), desc="Decrypting ", unit="round")
+    else:
+        iterable = range(ENCRYPTION_ROUND)
+
+    for i in iterable:
         # Separate the iv and encrypted_data
         try:
             iv, encrypted_data = data_round.split(DELIMITER_DATA)
@@ -209,20 +258,29 @@ def decryption_handler(password: str, file: str):
 
     if compress_flag:
         # Decompress the data
-        print("\033[1;34;40mDecompressing the data...", end="", flush=True)
+        if not SILENT:
+            print("\033[1;34;40mDecompressing the data...", end="", flush=True)
         data_round = decompress(data_round)
-        print("\033[1;32;40mDone\033[1;34;40m")
+        if not SILENT:
+            print("\033[1;32;40mDone\033[1;34;40m")
 
     # Write the decrypted data
-    new_file = file.split(".")[0] + "-decrypted." + extension
+    if output:
+        new_file = output + "." + extension
+    else:
+        new_file = file.split(".")[0] + "." + extension
     write_file(new_file, data_round)
 
-    print("\033[1;36;40m=== DECRYPTION DONE ===")
+    if not SILENT:
+        print("\033[1;36;40m=== DECRYPTION DONE ===")
     print(f"\033[1;37;40mResult: {new_file}")
 
 
-def dir_encryption_handler(key: bytes, salt: bytes, directory: str, compress_flag: bool):
-    print(f"\033[1;36;40m=== DIR ENCRYPTION ===\033[1;34;40m")
+def dir_encryption_handler(key: bytes, salt: bytes, directory: str, compress_flag: bool, output: str):
+    global SILENT
+
+    if not SILENT:
+        print(f"\033[1;36;40m=== DIR ENCRYPTION ===\033[1;34;40m")
     # Check dirname
     check_dirname(directory)
 
@@ -233,32 +291,33 @@ def dir_encryption_handler(key: bytes, salt: bytes, directory: str, compress_fla
     check_dir_exist(directory_path)
 
     # Create a new directory
-    encrypted_dir = directory_path + "-encrypted"
-    print(f"\033[1;34;40mCopying files to {encrypted_dir}...", end="", flush=True)
-    makedirs(directory_path, exist_ok=True)
-    print("\033[1;32;40mDone")
+    if output:
+        encrypted_dir = join(getcwd(), output)
+    else:
+        encrypted_dir = directory_path + "-encrypted"
 
     # Copy the entire dir to the new encrypted dir
-    try:
-        copytree(directory_path, encrypted_dir)
-    except FileExistsError:
-        print("\033[1;31;40m!!! DIR ALREADY EXIST !!!\033[1;37;40m")
-        exit(6)
+    copy_dir(directory_path, encrypted_dir)
 
     # The actual encryption process
     for folder_name, sub_folders, filenames in walk(encrypted_dir):
         for filename in filenames:
-            print(f"\033[1;36;40m=== Encrypting {filename} ===\033[1;34;40m")
+            if not SILENT:
+                print(f"\033[1;36;40m=== Encrypting {filename} ===\033[1;34;40m")
             file_path = join(folder_name, filename)
-            encryption_handler(key, salt, file_path, compress_flag)
+            encryption_handler(key, salt, file_path, compress_flag, "")
             remove(file_path)
 
-    print(f"\033[1;36;40m=== DIR ENCRYPTION DONE ===\033[1;34;40m")
+    if not SILENT:
+        print(f"\033[1;36;40m=== DIR ENCRYPTION DONE ===\033[1;34;40m")
     print(f"\033[1;37;40mResult: {encrypted_dir}")
 
 
-def dir_decryption_handler(password: str, directory: str):
-    print(f"\033[1;36;40m=== DIR DECRYPTION ===\033[1;34;40m")
+def dir_decryption_handler(password: str, directory: str, output: str):
+    global SILENT
+
+    if not SILENT:
+        print(f"\033[1;36;40m=== DIR DECRYPTION ===\033[1;34;40m")
     # Check dirname
     check_dirname(directory)
 
@@ -269,28 +328,41 @@ def dir_decryption_handler(password: str, directory: str):
     check_dir_exist(directory_path)
 
     # Create a new directory
-    decrypted_dir = directory_path + "-decrypted"
-    print(f"\033[1;34;40mCopying files to {decrypted_dir}...", end="", flush=True)
-    makedirs(directory_path, exist_ok=True)
-    print("\033[1;32;40mDone")
+    if output:
+        decrypted_dir = join(getcwd(), output)
+    else:
+        decrypted_dir = directory_path + "-decrypted"
 
     # Copy the entire dir to the new encrypted dir
-    try:
-        copytree(directory_path, decrypted_dir)
-    except FileExistsError:
-        print("\033[1;31;40m!!! DIR ALREADY EXIST !!!\033[1;37;40m")
-        exit(6)
+    copy_dir(directory_path, decrypted_dir)
 
     # The actual decryption process
     for folder_name, sub_folders, filenames in walk(decrypted_dir):
         for filename in filenames:
-            print(f"\033[1;36;40m=== Decrypting {filename} ===\033[1;34;40m")
+            if not SILENT:
+                print(f"\033[1;36;40m=== Decrypting {filename} ===\033[1;34;40m")
             file_path = join(folder_name, filename)
-            decryption_handler(password, file_path)
+            decryption_handler(password, file_path, "")
             remove(file_path)
 
-    print(f"\033[1;36;40m=== DIR DECRYPTION DONE ===\033[1;34;40m")
+    if not SILENT:
+        print(f"\033[1;36;40m=== DIR DECRYPTION DONE ===\033[1;34;40m")
     print(f"\033[1;37;40mResult: {decrypted_dir}")
+
+
+def copy_dir(src: str, dst: str):
+    if not SILENT:
+        print(f"\033[1;34;40mCopying files to {dst}...", end="", flush=True)
+    makedirs(src, exist_ok=True)
+    if not SILENT:
+        print("\033[1;32;40mDone")
+
+    # Copy the entire dir to the new encrypted dir
+    try:
+        copytree(src, dst)
+    except FileExistsError:
+        print("\033[1;31;40m!!! DIR ALREADY EXIST !!!\033[1;37;40m")
+        exit(6)
 
 
 def check_dir_exist(check_dir: str):
@@ -305,40 +377,50 @@ def check_dir_exist(check_dir: str):
 
 def check_dirname(path: str):
     if "\\" in path or "/" in path:
-        print("\033[1;31;40m!!! PATH DIR NOT SUITABLE !!!\033[1;37;40m")
+        print(f"\033[1;31;40m!!! PATH DIR NOT SUITABLE: {path} !!!\033[1;37;40m")
         exit(5)
 
 
 def check_filename(file: str):
     filename = file.split(".")
     if len(filename) > 2 or len(filename) < 2:
-        print("\033[1;31;40m!!! FILENAME NOT SUITABLE !!!\033[1;37;40m")
+        print(f"\033[1;31;40m!!! FILENAME NOT SUITABLE: {file} !!!\033[1;37;40m")
         exit(5)
 
 
 def write_file(new_file: str, data: bytes):
+    global SILENT
+
     with open(new_file, "wb") as f:
-        with tqdm(f, total=len(data), desc="Writing    ", unit="Bytes",
-                  unit_scale=True, unit_divisor=1024) as pbar:
-            for i in range(0, len(data), CHUNK_SIZE):
-                chunk = data[i:i + CHUNK_SIZE]
-                f.write(chunk)
-                pbar.update(len(chunk))
+        if not SILENT:
+            with tqdm(f, total=len(data), desc="Writing    ", unit="Bytes",
+                      unit_scale=True, unit_divisor=1024) as pbar:
+                for i in range(0, len(data), CHUNK_SIZE):
+                    chunk = data[i:i + CHUNK_SIZE]
+                    f.write(chunk)
+                    pbar.update(len(chunk))
+        else:
+            f.write(data)
 
 
 def read_file(file: str) -> bytes:
+    global SILENT
+
     data = b''
     try:
         file_size = getsize(file)
         with open(file, "rb") as f:
-            with tqdm(f, total=file_size, desc="Reading    ", unit="Bytes",
-                      unit_scale=True, unit_divisor=1024) as pbar:
-                while True:
-                    chunk = f.read(CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    data += chunk
-                    pbar.update(len(chunk))
+            if not SILENT:
+                with tqdm(f, total=file_size, desc="Reading    ", unit="Bytes",
+                          unit_scale=True, unit_divisor=1024) as pbar:
+                    while True:
+                        chunk = f.read(CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        data += chunk
+                        pbar.update(len(chunk))
+            else:
+                data = f.read()
     except FileNotFoundError:
         print(f"\033[1;31;40m\n!!! FILE '{file}' NOT FOUND !!!\033[1;37;40m")
         exit(4)
@@ -372,6 +454,18 @@ def get_key(password: str, salt: bytes) -> bytes:
 
     # Return the derived key
     return kdf.derive(password.encode())
+
+
+def input_key() -> (bytes, bytes):
+    global SILENT
+
+    password = getpass()
+    if not SILENT:
+        print("\033[1;34;40mDeriving key from password...", end="", flush=True)
+    key, salt = derive_key(password)
+    if not SILENT:
+        print("\033[1;32;40mDone\033[1;34;40m")
+    return key, salt
 
 
 def encrypt(data: bytes, key: bytes) -> (bytes, bytes):

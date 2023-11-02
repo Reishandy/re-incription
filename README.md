@@ -29,7 +29,10 @@ To encrypt a file:
 ```commandline
 python re-incription.py -e options filename
 ```
-- options: Use -c to compress the file before encryption if desired.
+- options:
+1. Use -c to compress the file before encryption if desired.
+2. Use -o to specify the output file name (do not include the extension).
+3. Use -s to encrypt silently without any prompts.
 - filename: The name of the file to be encrypted (include the extension).
 
 To decrypt a file:
@@ -42,7 +45,10 @@ To encrypt a dir:
 ```commandline
 python re-incription.py -E options dirname
 ```
-- options: Use -c to compress the file before encryption if desired.
+- options:
+1. Use -c to compress the file before encryption if desired.
+2. Use -o to specify the output file name (do not include the extension).
+3. Use -s to encrypt silently without any prompts.
 - dirname: The name of the dir to be encrypted (only the dir name).
 
 To decrypt a dir:
@@ -56,22 +62,22 @@ python re-incription.py -D dirname
 ## Examples
 Encrypt a file with compression:
 ```commandline
-python re-incription.py -e -c mydocument.txt
+python re-incription.py -e mydocument.txt -c
 ```
 
-Decrypt an encrypted file:
+Decrypt an encrypted file with different output file:
 ```commandline
-python re-incription.py -d mydocument-encrypted.rei
+python re-incription.py -d mydocument-encrypted.rei -o differentFile
 ```
 
-Encrypt a dir with compression:
+Encrypt a dir silently:
 ```commandline
-python re-incription.py -E -c myDir
+python re-incription.py -E myDir -s
 ```
 
-Decrypt an encrypted dir:
+Decrypt an encrypted dir with different output dir:
 ```commandline
-python re-incription.py -D myDir-encrypted
+python re-incription.py -D myDir-encrypted -o differentDir
 ```
 
 
