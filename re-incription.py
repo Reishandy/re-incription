@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from tqdm import tqdm
 
 # Constants
-ENCRYPTION_ROUND: int = 16
 PASSWORD_ITERATION: int = 480_000
 SECONDARY_LENGTH: int = 16
 PRIMARY_LENGTH: int = 32
@@ -23,10 +22,11 @@ CHUNK_SIZE: int = 1_048_576
 
 # Global variables for silent mode
 SILENT: bool = False
+ENCRYPTION_ROUND: int = 16
 
 
 def main():
-    global SILENT
+    global SILENT, ENCRYPTION_ROUND
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -45,9 +45,10 @@ description:
     file is compressed or not when decrypting the file and do the appropriate action. 
     
     The format of .rei file is as follows:
-    [compressed] DELIMITER [extension] DELIMITER [hash] DELIMITER [salt] DELIMITER [encrypted_data]
+    [compressed] DELIMITER [encryption round] DELIMITER [extension] DELIMITER [hash] DELIMITER [salt] DELIMITER [encrypted_data]
     - DELIMITER: b'\\x00\\x01\\x00\\x01\\x00\\x01\\x00\\x01', used to separate the component
     - compressed: b'\\x01' if the file is compressed, b'\\x00' if not
+    - encryption round: how many round this file is ecnrypted
     - extension: the extension of the original file, Unicode encoded
     - hash: the hash of the encrypted data, used to verify the integrity of the data
     - salt: the salt used to derive the key from the password
@@ -58,7 +59,7 @@ features:
     - Encrypt and decrypt file using AES-256 CBC
     - Encrypt and decrypt entire folder
     - Encryption by password using PBKDF2HMAC with 480,000 iterations to derive the key
-    - 16 rounds of encryption, different key for each round
+    - Multiple rounds of encryption, different key for each round. The round can be specified
     - Integrity check using SHA3-256
     - Compression before encryption, and automatic decompression when decrypting
     - Can retain the original file extension, so the program can automatically determine the original file's type
@@ -68,7 +69,7 @@ author:
         ''',
         epilog="developed for final project on cryptography class"
     )
-    parser.add_argument("-v", "--version", action="version", version="Version: 2.3")
+    parser.add_argument("-v", "--version", action="version", version="Version: 2.4")
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-e", "--encrypt", action="store_true", help="file encryption mode")
@@ -81,17 +82,25 @@ author:
     parser.add_argument("-o", "--output", help="output file name, no extension")
     parser.add_argument("-s", "--silent", action="store_true", help="silent mode, no output except error "
                                                                     "and result. usually faster")
+    parser.add_argument("-r", "--round", help="encryption rounds, default to 16", type=int)
     args = parser.parse_args()
 
     # Check if silent mode is on
     if args.silent:
         SILENT = True
 
+    # Assign encryption round
+    if args.round:
+        if args.round > 1:
+            ENCRYPTION_ROUND = args.round
+        else:
+            print(f"\033[1;31;40m!!! MUST BE MORE THAN 0 ROUNDS: {args.round} !!!\033[1;37;40m")
+            exit(5)
+
     # Check if output filename is suitable, no path and no extension just filename. using regex
     if args.output:
         if "\\" in args.output or "/" in args.output or "." in args.output:
-            if not SILENT:
-                print(f"\033[1;31;40m!!! OUTPUT FILENAME NOT SUITABLE: {args.output} !!!\033[1;37;40m")
+            print(f"\033[1;31;40m!!! OUTPUT FILENAME NOT SUITABLE: {args.output} !!!\033[1;37;40m")
             exit(5)
 
     if args.encrypt:
@@ -115,7 +124,7 @@ author:
 
 
 def encryption_handler(key: bytes, salt: bytes, file: str, compress_flag: bool, output: str):
-    global SILENT
+    global SILENT, ENCRYPTION_ROUND
 
     if not SILENT:
         print("\033[1;36;40m=== ENCRYPTION ===\033[1;34;40m")
@@ -157,9 +166,10 @@ def encryption_handler(key: bytes, salt: bytes, file: str, compress_flag: bool, 
     if not SILENT:
         print("\033[1;34;40mPreparing the encrypted data...", end="", flush=True)
     extension = file.split(".")[1].encode()
+    encryption_round = str(ENCRYPTION_ROUND).encode()
     compress_state = b"\x01" if compress_flag else b"\x00"
-    data_ready = (compress_state + DELIMITER + extension + DELIMITER + get_hash(data_round) + DELIMITER +
-                  salt + DELIMITER + data_round)
+    data_ready = (compress_state + DELIMITER + encryption_round + DELIMITER + extension + DELIMITER +
+                  get_hash(data_round) + DELIMITER + salt + DELIMITER + data_round)
     if not SILENT:
         print("\033[1;32;40mDone\033[1;34;40m")
 
@@ -176,7 +186,7 @@ def encryption_handler(key: bytes, salt: bytes, file: str, compress_flag: bool, 
 
 
 def decryption_handler(password: str, file: str, output: str):
-    global SILENT
+    global SILENT, ENCRYPTION_ROUND
 
     if not SILENT:
         print("\033[1;36;40m=== DECRYPTION ===\033[1;34;40m")
@@ -197,10 +207,11 @@ def decryption_handler(password: str, file: str, output: str):
 
     # Check if the file is of .rei type
     try:
-        extension = component[1].decode()
-        data_hash = component[2]
-        salt = component[3]
-        data = component[4]
+        ENCRYPTION_ROUND = int(component[1].decode())
+        extension = component[2].decode()
+        data_hash = component[3]
+        salt = component[4]
+        data = component[5]
     except IndexError or UnicodeDecodeError:
         print("\033[1;31;40mFailed\n!!! WRONG FILE TYPE !!!\033[1;37;40m")
         exit(1)

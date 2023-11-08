@@ -5,7 +5,6 @@ Re-Incription is a simple file encryption program using AES-256 CFB and PBKDF2HM
 ## Table of Contents
 - [Installation](#installation)
 - [Usage](#usage)
-- [Examples](#examples)
 - [Features](#features)
 - [Notes](#notes)
 - [License](#license)
@@ -27,12 +26,13 @@ pip install -r requirements.txt
 ## Usage
 To encrypt a file:
 ```commandline
-python re-incription.py -e options filename
+python re-incription.py -e [options] filename
 ```
 - options:
 1. Use -c to compress the file before encryption if desired.
 2. Use -o to specify the output file name (do not include the extension).
-3. Use -s to encrypt silently without any prompts.
+3. Use -s to encrypt silently without any prompts
+4. Use -r to specify the amount of rounds of encryption
 - filename: The name of the file to be encrypted (include the extension).
 
 To decrypt a file:
@@ -56,30 +56,6 @@ To decrypt a dir:
 python re-incription.py -D dirname
 ```
 - dirname: The name of the dir to be decrypted (only the dir name).
-
-
-
-## Examples
-Encrypt a file with compression:
-```commandline
-python re-incription.py -e mydocument.txt -c
-```
-
-Decrypt an encrypted file with different output file:
-```commandline
-python re-incription.py -d mydocument-encrypted.rei -o differentFile
-```
-
-Encrypt a dir silently:
-```commandline
-python re-incription.py -E myDir -s
-```
-
-Decrypt an encrypted dir with different output dir:
-```commandline
-python re-incription.py -D myDir-encrypted -o differentDir
-```
-
 
 ## Features
 - File encryption and decryption using AES-256 CFB.
