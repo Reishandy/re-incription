@@ -61,7 +61,7 @@ python re-incription.py -D dirname
 - File encryption and decryption using AES-256 CFB.
 - Folder encryption and decryption.
 - Key derivation from password using PBKDF2HMAC with 480,000 iterations.
-- 16 rounds of encryption, each with a different key.
+- Multiple rounds of encryption (Defaults to 16), each with a different key.
 - Data integrity check using SHA3-256.
 - Option to compress file before encryption and automatic decompression during decryption.
 
