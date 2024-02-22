@@ -212,7 +212,7 @@ def decryption_handler(password: str, file: str, output: str):
         data_hash = component[3]
         salt = component[4]
         data = component[5]
-    except IndexError or UnicodeDecodeError:
+    except (IndexError, UnicodeDecodeError):
         print("\033[1;31;40mFailed\n!!! WRONG FILE TYPE !!!\033[1;37;40m")
         exit(1)
 
@@ -438,7 +438,7 @@ def read_file(file: str) -> bytes:
     return data
 
 
-def derive_key(password: str) -> (bytes, bytes):
+def derive_key(password: str) -> (bytes, bytes): # type: ignore
     # Generate secure 16 bytes salt
     salt = token_bytes(SECONDARY_LENGTH)
 
@@ -467,7 +467,7 @@ def get_key(password: str, salt: bytes) -> bytes:
     return kdf.derive(password.encode())
 
 
-def input_key() -> (bytes, bytes):
+def input_key() -> (bytes, bytes): # type: ignore
     global SILENT
 
     password = getpass()
@@ -479,7 +479,7 @@ def input_key() -> (bytes, bytes):
     return key, salt
 
 
-def encrypt(data: bytes, key: bytes) -> (bytes, bytes):
+def encrypt(data: bytes, key: bytes) -> (bytes, bytes): # type: ignore
     # Generate iv
     iv = token_bytes(SECONDARY_LENGTH)
 
