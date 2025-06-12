@@ -73,4 +73,4 @@ python re-incription.py -D dirname
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Author
-Muhammad Akbar Reishandy - isthisruxury@gmail.com
+Muhammad Akbar Reishandy - akbar@reishandy.my.id
